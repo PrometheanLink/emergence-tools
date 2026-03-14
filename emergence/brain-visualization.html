@@ -153,6 +153,10 @@
       <span class="status-label">VELOCITY</span>
       <span class="status-value" id="velocityValue">—</span>
     </div>
+    <div class="status-item">
+      <span class="status-label">DATA</span>
+      <span class="status-value" id="connectionStatus">● LOADING</span>
+    </div>
   </div>
 </header>
 
@@ -164,7 +168,8 @@
   <button class="ctrl-btn" onclick="injectSignal('deployment')">[ inject: deployment ]</button>
   <button class="ctrl-btn" onclick="injectSignal('idle')">[ inject: idle ]</button>
   <button class="ctrl-btn" onclick="triggerCascade()">[ cascade wave ]</button>
-  <button class="ctrl-btn" onclick="loadBrainState()">[ refresh state ]</button>
+  <button class="ctrl-btn" onclick="loadBrainState()">[ refresh now ]</button>
+  <button class="ctrl-btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">[ auto: ON ]</button>
 </div>
 
 <div class="panel">
@@ -426,11 +431,102 @@ function renderSignalLog() {
 }
 
 // ─── Brain State Loading ────────────────────────────────────────────────────
+// API endpoint configuration
+const API_ENDPOINTS = [
+  '/api/brain-state/summary',           // Same-origin (proxied or direct)
+  'http://localhost:8000/api/brain-state/summary',  // Local development
+  'https://smartidata.com/api/brain-state/summary'  // Production
+];
+
+let apiEndpoint = null;  // Will be set to working endpoint
+let refreshInterval = null;
+
 async function loadBrainState() {
-  // For now, use embedded demo state
-  // In production, fetch from: /api/brain-state
+  // Try to fetch from live API
+  for (const endpoint of API_ENDPOINTS) {
+    if (apiEndpoint && endpoint !== apiEndpoint) continue;  // Skip if we already know which works
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        mode: endpoint.startsWith('http') ? 'cors' : 'same-origin'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        brainState = transformApiResponse(data);
+        apiEndpoint = endpoint;  // Remember which endpoint works
+        updateConnectionStatus(true, endpoint);
+        applyBrainState();
+        return;
+      }
+    } catch (e) {
+      console.log(`API endpoint ${endpoint} not available:`, e.message);
+    }
+  }
+
+  // Fallback to demo state
+  console.log('Using demo brain state (API unavailable)');
   brainState = getDemoBrainState();
+  updateConnectionStatus(false);
   applyBrainState();
+}
+
+function transformApiResponse(data) {
+  // Transform API response to match expected structure
+  // The /api/brain-state/summary endpoint returns:
+  // { arousal, mood, cycle_count, attention, fluency, signals_pending, recent_decisions, hormones, timestamp }
+  return {
+    arousal: data.arousal || 'calm',
+    mood: data.mood || 'neutral',
+    cycle_count: data.cycle_count || 0,
+    attention: data.attention || {},
+    fluency: data.fluency || { velocity: { cycles_per_day: 0 } },
+    endocrine: {
+      hormones: Object.fromEntries(
+        Object.entries(data.hormones || {}).map(([name, level]) => [name, { level }])
+      )
+    },
+    decisions: [],
+    timestamp: data.timestamp
+  };
+}
+
+function updateConnectionStatus(connected, endpoint = null) {
+  const statusEl = document.getElementById('connectionStatus');
+  if (statusEl) {
+    if (connected) {
+      statusEl.innerHTML = `<span style="color:#4ecdc4">● LIVE</span> <span style="opacity:0.5">${endpoint?.split('/')[2] || ''}</span>`;
+    } else {
+      statusEl.innerHTML = `<span style="color:#ff6b6b">● DEMO</span>`;
+    }
+  }
+}
+
+function startAutoRefresh(intervalMs = 30000) {
+  if (refreshInterval) clearInterval(refreshInterval);
+  refreshInterval = setInterval(loadBrainState, intervalMs);
+  console.log(`Auto-refresh enabled: every ${intervalMs/1000}s`);
+}
+
+function stopAutoRefresh() {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
+}
+
+function toggleAutoRefresh() {
+  const btn = document.getElementById('autoRefreshBtn');
+  if (refreshInterval) {
+    stopAutoRefresh();
+    btn.textContent = '[ auto: OFF ]';
+    console.log('Auto-refresh disabled');
+  } else {
+    startAutoRefresh(30000);
+    btn.textContent = '[ auto: ON ]';
+  }
 }
 
 function getDemoBrainState() {
@@ -605,7 +701,10 @@ function animate() {
 
 // ─── Initialize ─────────────────────────────────────────────────────────────
 initModules();
-loadBrainState();
+loadBrainState().then(() => {
+  // Start auto-refresh after initial load
+  startAutoRefresh(30000);  // Refresh every 30 seconds
+});
 animate();
 
 // Reinit on resize
