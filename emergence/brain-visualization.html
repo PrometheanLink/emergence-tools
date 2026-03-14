@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Brain State Visualization — SMARTiDATA Connectome</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#030812;
+    --surface:rgba(255,255,255,0.03);
+    --border:rgba(100,180,220,0.12);
+    --text-primary:#e8f4ff;
+    --text-muted:rgba(140,195,230,0.6);
+    --calm:#2dd4bf;
+    --alert:#fbbf24;
+    --alarmed:#ef4444;
+    --font-mono:'SF Mono','Monaco','Consolas',monospace;
+    --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  html,body{width:100%;min-height:100vh;background:var(--bg);color:var(--text-primary);font-family:var(--font-sans);overflow:hidden;}
+
+  /* Header */
+  header{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;
+    background:rgba(3,8,18,0.9);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border);
+  }
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-pulse{width:10px;height:10px;border-radius:50%;animation:pulse 2s infinite;}
+  .logo-pulse.calm{background:var(--calm);box-shadow:0 0 12px var(--calm);}
+  .logo-pulse.alert{background:var(--alert);box-shadow:0 0 12px var(--alert);}
+  .logo-pulse.alarmed{background:var(--alarmed);box-shadow:0 0 12px var(--alarmed);}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.6;transform:scale(0.9);}}
+  .logo-text{font-size:14px;font-weight:600;letter-spacing:0.04em;}
+  .logo-sub{font-size:10px;color:var(--text-muted);letter-spacing:0.06em;}
+  .header-status{display:flex;gap:20px;font-size:11px;font-family:var(--font-mono);}
+  .status-item{display:flex;align-items:center;gap:6px;}
+  .status-label{color:var(--text-muted);letter-spacing:0.05em;}
+  .status-value{letter-spacing:0.02em;}
+  .status-value.calm{color:var(--calm);}
+  .status-value.alert{color:var(--alert);}
+  .status-value.alarmed{color:var(--alarmed);}
+
+  /* Canvas */
+  #canvas-container{
+    position:fixed;top:60px;left:0;right:0;bottom:0;
+  }
+  canvas{display:block;width:100%;height:100%;}
+
+  /* Side Panel */
+  .panel{
+    position:fixed;top:80px;right:20px;width:280px;
+    background:rgba(3,8,18,0.85);backdrop-filter:blur(12px);
+    border:1px solid var(--border);border-radius:12px;
+    padding:20px;font-size:12px;z-index:50;
+  }
+  .panel-header{
+    font-size:11px;font-family:var(--font-mono);letter-spacing:0.1em;
+    color:var(--text-muted);margin-bottom:14px;
+    padding-bottom:10px;border-bottom:1px solid var(--border);
+  }
+  .attention-bar{margin-bottom:10px;}
+  .attention-label{display:flex;justify-content:space-between;margin-bottom:4px;}
+  .attention-name{color:var(--text-muted);}
+  .attention-pct{font-family:var(--font-mono);}
+  .attention-track{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;}
+  .attention-fill{height:100%;border-radius:2px;transition:width 0.5s ease;}
+
+  .hormone-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;}
+  .hormone-item{
+    background:rgba(255,255,255,0.03);border-radius:6px;padding:8px 10px;
+  }
+  .hormone-name{font-size:10px;color:var(--text-muted);margin-bottom:4px;}
+  .hormone-bar{height:3px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;}
+  .hormone-fill{height:100%;border-radius:2px;}
+
+  /* Module Legend */
+  .legend{
+    position:fixed;bottom:20px;left:20px;
+    background:rgba(3,8,18,0.85);backdrop-filter:blur(12px);
+    border:1px solid var(--border);border-radius:12px;
+    padding:16px 20px;font-size:11px;z-index:50;
+  }
+  .legend-header{
+    font-family:var(--font-mono);letter-spacing:0.1em;
+    color:var(--text-muted);margin-bottom:12px;
+  }
+  .legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;}
+  .legend-item{display:flex;align-items:center;gap:8px;}
+  .legend-dot{width:8px;height:8px;border-radius:50%;}
+  .legend-label{color:var(--text-muted);}
+
+  /* Signal Log */
+  .signal-log{
+    position:fixed;bottom:20px;right:20px;width:280px;max-height:200px;
+    background:rgba(3,8,18,0.85);backdrop-filter:blur(12px);
+    border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;font-size:10px;font-family:var(--font-mono);
+    overflow-y:auto;z-index:50;
+  }
+  .signal-log-header{
+    letter-spacing:0.1em;color:var(--text-muted);margin-bottom:10px;
+  }
+  .signal-entry{
+    padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+    color:rgba(180,200,220,0.7);
+  }
+  .signal-entry:last-child{border-bottom:none;}
+  .signal-route{color:var(--calm);}
+  .signal-escalated{color:var(--alarmed);}
+
+  /* Controls */
+  .controls{
+    position:fixed;top:80px;left:20px;
+    display:flex;flex-direction:column;gap:8px;z-index:50;
+  }
+  .ctrl-btn{
+    font-family:var(--font-mono);font-size:10px;letter-spacing:0.04em;
+    color:var(--calm);background:rgba(45,212,191,0.08);
+    border:1px solid rgba(45,212,191,0.25);border-radius:6px;
+    padding:8px 14px;cursor:pointer;transition:all 0.18s;
+  }
+  .ctrl-btn:hover{background:rgba(45,212,191,0.15);border-color:rgba(45,212,191,0.5);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-pulse" id="arousalPulse"></div>
+    <div>
+      <div class="logo-text">SMARTiDATA Brain</div>
+      <div class="logo-sub">CONNECTOME VISUALIZATION</div>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="status-item">
+      <span class="status-label">AROUSAL</span>
+      <span class="status-value" id="arousalValue">—</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">MOOD</span>
+      <span class="status-value" id="moodValue">—</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">CYCLE</span>
+      <span class="status-value" id="cycleValue">—</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">VELOCITY</span>
+      <span class="status-value" id="velocityValue">—</span>
+    </div>
+  </div>
+</header>
+
+<div id="canvas-container">
+  <canvas id="cv"></canvas>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn" onclick="injectSignal('deployment')">[ inject: deployment ]</button>
+  <button class="ctrl-btn" onclick="injectSignal('idle')">[ inject: idle ]</button>
+  <button class="ctrl-btn" onclick="triggerCascade()">[ cascade wave ]</button>
+  <button class="ctrl-btn" onclick="loadBrainState()">[ refresh state ]</button>
+</div>
+
+<div class="panel">
+  <div class="panel-header">ATTENTION DISTRIBUTION</div>
+  <div id="attentionBars"></div>
+  <div class="panel-header" style="margin-top:20px;">HORMONE LEVELS</div>
+  <div class="hormone-grid" id="hormoneGrid"></div>
+</div>
+
+<div class="legend">
+  <div class="legend-header">MODULES</div>
+  <div class="legend-grid" id="legendGrid"></div>
+</div>
+
+<div class="signal-log">
+  <div class="signal-log-header">SIGNAL ROUTING</div>
+  <div id="signalEntries"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// BRAIN STATE VISUALIZATION
+// Maps brain-state.yaml to emergence particle network
+// ═══════════════════════════════════════════════════════════════════════════
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function resize() {
+  cv.width = cv.offsetWidth;
+  cv.height = cv.offsetHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ─── Module Definitions ─────────────────────────────────────────────────────
+const MODULES = [
+  // Bloom's Engine (Metabolic)
+  { id: 'digest', name: 'Digest', type: 'bloom', hue: 180, angle: 0 },
+  { id: 'circulate', name: 'Circulate', type: 'bloom', hue: 190, angle: 60 },
+  { id: 'patrol', name: 'Patrol', type: 'bloom', hue: 200, angle: 120 },
+  { id: 'synthesize', name: 'Synthesize', type: 'bloom', hue: 160, angle: 180 },
+  { id: 'evaluate', name: 'Evaluate', type: 'bloom', hue: 170, angle: 240 },
+  { id: 'comprehend', name: 'Comprehend', type: 'bloom', hue: 185, angle: 300 },
+  // Connectome (Neural)
+  { id: 'cortex', name: 'Cortex', type: 'connectome', hue: 280, angle: 30 },
+  { id: 'reflex', name: 'Reflex', type: 'connectome', hue: 0, angle: 90 },
+  { id: 'reward', name: 'Reward', type: 'connectome', hue: 45, angle: 150 },
+  { id: 'consolidate', name: 'Consolidate', type: 'connectome', hue: 270, angle: 210 },
+  { id: 'daydream', name: 'Daydream', type: 'connectome', hue: 300, angle: 270 },
+  { id: 'regulate', name: 'Regulate', type: 'connectome', hue: 320, angle: 330 },
+];
+
+// Attention domain → module mapping
+const ATTENTION_ROUTES = {
+  deployment: ['reflex', 'circulate', 'patrol'],
+  bugs: ['patrol', 'evaluate'],
+  marketing: ['synthesize', 'daydream'],
+  learning: ['digest', 'comprehend', 'consolidate'],
+  infrastructure: ['patrol', 'circulate'],
+  security: ['reflex', 'patrol'],
+  'client-delivery': ['synthesize', 'reward'],
+};
+
+// ─── Particle Class ─────────────────────────────────────────────────────────
+class Module {
+  constructor(def, cx, cy, radius) {
+    this.id = def.id;
+    this.name = def.name;
+    this.type = def.type;
+    this.baseHue = def.hue;
+    this.hue = def.hue;
+
+    // Position on ring
+    const angleRad = (def.angle - 90) * Math.PI / 180;
+    const ringRadius = radius * (def.type === 'bloom' ? 0.7 : 0.45);
+    this.homeX = cx + Math.cos(angleRad) * ringRadius;
+    this.homeY = cy + Math.sin(angleRad) * ringRadius;
+    this.x = this.homeX + (Math.random() - 0.5) * 20;
+    this.y = this.homeY + (Math.random() - 0.5) * 20;
+
+    this.vx = 0;
+    this.vy = 0;
+    this.baseRadius = def.type === 'bloom' ? 18 : 14;
+    this.r = this.baseRadius;
+    this.energy = 0;
+    this.attention = 0;
+  }
+
+  update() {
+    // Drift toward home with spring force
+    const dx = this.homeX - this.x;
+    const dy = this.homeY - this.y;
+    this.vx += dx * 0.008;
+    this.vy += dy * 0.008;
+
+    // Damping
+    this.vx *= 0.92;
+    this.vy *= 0.92;
+
+    // Random jitter when energized
+    if (this.energy > 0.1) {
+      this.vx += (Math.random() - 0.5) * this.energy * 2;
+      this.vy += (Math.random() - 0.5) * this.energy * 2;
+    }
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Energy decay
+    if (this.energy > 0) {
+      this.energy *= 0.96;
+      if (this.energy < 0.02) this.energy = 0;
+    }
+
+    // Dynamic radius based on attention + energy
+    this.r = this.baseRadius + this.attention * 15 + this.energy * 20;
+    this.hue = this.baseHue + this.energy * 40;
+  }
+
+  draw(ctx) {
+    const e = this.energy;
+    const a = this.attention;
+
+    // Outer glow
+    if (e > 0.05 || a > 0.1) {
+      const glowRadius = this.r * (2 + e * 2);
+      const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowRadius);
+      gradient.addColorStop(0, `hsla(${this.hue}, 80%, 60%, ${0.15 + e * 0.3})`);
+      gradient.addColorStop(0.5, `hsla(${this.hue}, 70%, 50%, ${0.05 + e * 0.1})`);
+      gradient.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, glowRadius, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+    }
+
+    // Core
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    const brightness = 45 + a * 25 + e * 30;
+    const alpha = 0.7 + a * 0.2 + e * 0.1;
+    ctx.fillStyle = `hsla(${this.hue}, 75%, ${brightness}%, ${alpha})`;
+    ctx.fill();
+
+    // Inner highlight
+    ctx.beginPath();
+    ctx.arc(this.x - this.r * 0.2, this.y - this.r * 0.2, this.r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${this.hue}, 60%, ${70 + e * 20}%, ${0.3 + e * 0.2})`;
+    ctx.fill();
+
+    // Label
+    ctx.font = '10px SF Mono, Monaco, monospace';
+    ctx.fillStyle = `rgba(255,255,255,${0.5 + a * 0.3 + e * 0.2})`;
+    ctx.textAlign = 'center';
+    ctx.fillText(this.name.toUpperCase(), this.x, this.y + this.r + 14);
+  }
+}
+
+// ─── State ──────────────────────────────────────────────────────────────────
+let modules = [];
+let brainState = null;
+let connections = [];
+let signalLog = [];
+
+function initModules() {
+  const cx = cv.width / 2;
+  const cy = cv.height / 2;
+  const radius = Math.min(cv.width, cv.height) * 0.4;
+
+  modules = MODULES.map(def => new Module(def, cx, cy, radius));
+
+  // Build legend
+  const legendGrid = document.getElementById('legendGrid');
+  legendGrid.innerHTML = modules.map(m => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:hsl(${m.baseHue},70%,55%)"></div>
+      <span class="legend-label">${m.name}</span>
+    </div>
+  `).join('');
+}
+
+// ─── Connections ────────────────────────────────────────────────────────────
+function drawConnections() {
+  // Draw connections between active modules
+  for (let i = 0; i < modules.length; i++) {
+    for (let j = i + 1; j < modules.length; j++) {
+      const a = modules[i];
+      const b = modules[j];
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = 250;
+
+      if (dist < maxDist) {
+        const t = 1 - dist / maxDist;
+        const energy = (a.energy + b.energy) / 2;
+        const attention = (a.attention + b.attention) / 2;
+        const alpha = t * 0.15 + energy * 0.4 + attention * 0.2;
+
+        if (alpha > 0.02) {
+          const hue = (a.hue + b.hue) / 2;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = `hsla(${hue}, 60%, 55%, ${alpha})`;
+          ctx.lineWidth = 0.5 + energy * 3 + attention * 2;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+// ─── Signal Injection ───────────────────────────────────────────────────────
+function injectSignal(type) {
+  const route = ATTENTION_ROUTES[type] || ['cortex', 'daydream'];
+
+  route.forEach((moduleId, i) => {
+    setTimeout(() => {
+      const module = modules.find(m => m.id === moduleId);
+      if (module) {
+        module.energy = 1;
+        module.vx += (Math.random() - 0.5) * 8;
+        module.vy += (Math.random() - 0.5) * 8;
+      }
+    }, i * 150);
+  });
+
+  // Log
+  addSignalEntry(type, route, type === 'deployment');
+}
+
+function triggerCascade() {
+  modules.forEach((m, i) => {
+    setTimeout(() => {
+      m.energy = 0.8 + Math.random() * 0.2;
+    }, i * 80);
+  });
+  addSignalEntry('cascade', modules.map(m => m.id), false);
+}
+
+function addSignalEntry(type, route, escalated) {
+  const entry = { type, route, escalated, time: new Date().toLocaleTimeString() };
+  signalLog.unshift(entry);
+  if (signalLog.length > 10) signalLog.pop();
+  renderSignalLog();
+}
+
+function renderSignalLog() {
+  const container = document.getElementById('signalEntries');
+  container.innerHTML = signalLog.map(s => `
+    <div class="signal-entry">
+      <span style="color:rgba(255,255,255,0.4)">${s.time}</span>
+      ${s.type} → <span class="${s.escalated ? 'signal-escalated' : 'signal-route'}">${s.route.join(' → ')}</span>
+      ${s.escalated ? '<span class="signal-escalated">[!]</span>' : ''}
+    </div>
+  `).join('');
+}
+
+// ─── Brain State Loading ────────────────────────────────────────────────────
+async function loadBrainState() {
+  // For now, use embedded demo state
+  // In production, fetch from: /api/brain-state
+  brainState = getDemoBrainState();
+  applyBrainState();
+}
+
+function getDemoBrainState() {
+  return {
+    arousal: 'alarmed',
+    mood: 'energized',
+    cycle_count: 77,
+    attention: {
+      deployment: 0.954,
+      bugs: 0.006,
+      marketing: 0.01,
+      learning: 0.01,
+      infrastructure: 0.008,
+      security: 0.006,
+      'client-delivery': 0.008
+    },
+    fluency: {
+      velocity: { cycles_per_day: 2.31 }
+    },
+    endocrine: {
+      hormones: {
+        cortisol: { level: 0.124 },
+        serotonin: { level: 0.128 },
+        dopamine: { level: 0.5 },
+        endorphins: { level: 0.4 },
+        oxytocin: { level: 0.5 },
+        adrenaline: { level: 0.929 },
+        norepinephrine: { level: 0.941 },
+        melatonin: { level: 0.3 }
+      }
+    },
+    decisions: [
+      { decision: 'Amygdala hijack: high threat in deployment', context: 'reflex.hijack', outcome: 'escalated' },
+      { signal_type: 'deployment', route: ['reflex', 'circulate', 'patrol'], escalated: true },
+      { signal_type: 'idle', route: ['daydream', 'synthesize'], escalated: false }
+    ]
+  };
+}
+
+function applyBrainState() {
+  if (!brainState) return;
+
+  // Update header
+  const arousal = brainState.arousal || 'calm';
+  document.getElementById('arousalPulse').className = `logo-pulse ${arousal}`;
+  document.getElementById('arousalValue').textContent = arousal.toUpperCase();
+  document.getElementById('arousalValue').className = `status-value ${arousal}`;
+  document.getElementById('moodValue').textContent = (brainState.mood || '—').toUpperCase();
+  document.getElementById('cycleValue').textContent = `#${brainState.cycle_count || 0}`;
+  document.getElementById('velocityValue').textContent = `${brainState.fluency?.velocity?.cycles_per_day || 0}/day`;
+
+  // Apply attention to modules
+  const attention = brainState.attention || {};
+  Object.entries(attention).forEach(([domain, weight]) => {
+    const routes = ATTENTION_ROUTES[domain] || [];
+    routes.forEach(moduleId => {
+      const module = modules.find(m => m.id === moduleId);
+      if (module) {
+        module.attention = Math.max(module.attention, weight);
+      }
+    });
+  });
+
+  // Render attention bars
+  renderAttentionBars(attention);
+
+  // Render hormones
+  renderHormones(brainState.endocrine?.hormones || {});
+
+  // Inject recent signals
+  const decisions = brainState.decisions || [];
+  decisions.slice(0, 3).forEach((d, i) => {
+    if (d.route) {
+      setTimeout(() => {
+        d.route.forEach((moduleId, j) => {
+          setTimeout(() => {
+            const module = modules.find(m => m.id === moduleId);
+            if (module) module.energy = 0.6;
+          }, j * 100);
+        });
+      }, i * 500);
+    }
+  });
+}
+
+function renderAttentionBars(attention) {
+  const container = document.getElementById('attentionBars');
+  const sorted = Object.entries(attention).sort((a, b) => b[1] - a[1]);
+
+  const colors = {
+    deployment: '#ef4444',
+    bugs: '#f59e0b',
+    marketing: '#8b5cf6',
+    learning: '#06b6d4',
+    infrastructure: '#64748b',
+    security: '#ec4899',
+    'client-delivery': '#22c55e'
+  };
+
+  container.innerHTML = sorted.map(([name, val]) => `
+    <div class="attention-bar">
+      <div class="attention-label">
+        <span class="attention-name">${name}</span>
+        <span class="attention-pct">${(val * 100).toFixed(1)}%</span>
+      </div>
+      <div class="attention-track">
+        <div class="attention-fill" style="width:${val * 100}%;background:${colors[name] || '#888'}"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderHormones(hormones) {
+  const container = document.getElementById('hormoneGrid');
+  const colors = {
+    cortisol: '#ef4444',
+    serotonin: '#22c55e',
+    dopamine: '#8b5cf6',
+    endorphins: '#ec4899',
+    oxytocin: '#f472b6',
+    adrenaline: '#f59e0b',
+    norepinephrine: '#06b6d4',
+    melatonin: '#6366f1'
+  };
+
+  container.innerHTML = Object.entries(hormones).map(([name, data]) => `
+    <div class="hormone-item">
+      <div class="hormone-name">${name}</div>
+      <div class="hormone-bar">
+        <div class="hormone-fill" style="width:${(data.level || 0) * 100}%;background:${colors[name] || '#888'}"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Animation Loop ─────────────────────────────────────────────────────────
+let frame = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  frame++;
+
+  // Clear with fade
+  ctx.fillStyle = 'rgba(3,8,18,0.12)';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  // Draw center gradient
+  const cx = cv.width / 2;
+  const cy = cv.height / 2;
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 300);
+  grad.addColorStop(0, 'rgba(45,212,191,0.03)');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  // Update and draw
+  drawConnections();
+  modules.forEach(m => {
+    m.update();
+    m.draw(ctx);
+  });
+
+  // Auto-pulse based on arousal
+  if (brainState?.arousal === 'alarmed' && frame % 120 === 0) {
+    const highAttention = Object.entries(brainState.attention || {})
+      .sort((a, b) => b[1] - a[1])[0];
+    if (highAttention) {
+      injectSignal(highAttention[0]);
+    }
+  }
+}
+
+// ─── Initialize ─────────────────────────────────────────────────────────────
+initModules();
+loadBrainState();
+animate();
+
+// Reinit on resize
+window.addEventListener('resize', () => {
+  resize();
+  initModules();
+  if (brainState) applyBrainState();
+});
+</script>
+</body>
+</html>

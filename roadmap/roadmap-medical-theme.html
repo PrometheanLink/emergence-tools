@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>3-Portal Transformation Roadmap — PrometheanLink</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#0a0f1a;
+    --surface:rgba(255,255,255,0.03);
+    --surface-hover:rgba(255,255,255,0.06);
+    --border:rgba(100,180,220,0.12);
+    --text-primary:#e8f4ff;
+    --text-muted:rgba(160,195,220,0.7);
+    --teal:#2dd4bf;
+    --teal-dim:rgba(45,212,191,0.12);
+    --indigo:#818cf8;
+    --indigo-dim:rgba(129,140,248,0.12);
+    --cyan:#22d3ee;
+    --cyan-dim:rgba(34,211,238,0.12);
+    --success:#34d399;
+    --warning:#fbbf24;
+    --font-mono:'SF Mono','Monaco','Consolas',monospace;
+    --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --radius:12px;
+  }
+  html,body{min-height:100vh;background:var(--bg);color:var(--text-primary);font-family:var(--font-sans);}
+
+  /* Header */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 32px;border-bottom:1px solid var(--border);
+    background:rgba(10,15,26,0.95);backdrop-filter:blur(12px);
+    position:sticky;top:0;z-index:100;
+  }
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-pulse{width:10px;height:10px;border-radius:50%;background:var(--teal);
+    box-shadow:0 0 12px var(--teal);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
+  .logo-text{font-size:15px;font-weight:600;letter-spacing:0.04em;}
+  .logo-sub{font-size:11px;color:var(--text-muted);letter-spacing:0.05em;}
+  .header-badge{
+    font-size:10px;font-family:var(--font-mono);letter-spacing:0.1em;
+    color:var(--cyan);border:1px solid rgba(34,211,238,0.3);
+    padding:5px 14px;border-radius:20px;background:rgba(34,211,238,0.08);
+  }
+
+  /* Main Layout */
+  main{max-width:1400px;margin:0 auto;padding:32px;}
+
+  /* Progress Overview */
+  .overview{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:40px;
+  }
+  .overview-card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:24px;position:relative;overflow:hidden;
+  }
+  .overview-card::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  }
+  .overview-card.teal::before{background:var(--teal);}
+  .overview-card.indigo::before{background:var(--indigo);}
+  .overview-card.cyan::before{background:var(--cyan);}
+  .overview-label{font-size:11px;font-family:var(--font-mono);letter-spacing:0.08em;color:var(--text-muted);margin-bottom:8px;}
+  .overview-title{font-size:18px;font-weight:600;margin-bottom:4px;}
+  .overview-subtitle{font-size:13px;color:var(--text-muted);margin-bottom:16px;}
+  .progress-bar{height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:3px;transition:width 0.5s ease;}
+  .progress-fill.teal{background:var(--teal);}
+  .progress-fill.indigo{background:var(--indigo);}
+  .progress-fill.cyan{background:var(--cyan);}
+  .progress-text{font-size:12px;font-family:var(--font-mono);color:var(--text-muted);margin-top:10px;text-align:right;}
+
+  /* Portal Sections */
+  .portal{margin-bottom:48px;}
+  .portal-header{
+    display:flex;align-items:center;gap:16px;margin-bottom:20px;
+    padding-bottom:16px;border-bottom:1px solid var(--border);
+  }
+  .portal-icon{
+    width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+  }
+  .portal-icon.teal{background:var(--teal-dim);color:var(--teal);}
+  .portal-icon.indigo{background:var(--indigo-dim);color:var(--indigo);}
+  .portal-icon.cyan{background:var(--cyan-dim);color:var(--cyan);}
+  .portal-title{font-size:20px;font-weight:600;}
+  .portal-desc{font-size:13px;color:var(--text-muted);}
+
+  /* Phases */
+  .phases{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;}
+  .phase{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:20px;transition:all 0.2s;
+  }
+  .phase:hover{background:var(--surface-hover);border-color:rgba(100,180,220,0.2);}
+  .phase-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .phase-name{font-size:14px;font-weight:600;}
+  .phase-status{
+    font-size:10px;font-family:var(--font-mono);letter-spacing:0.06em;
+    padding:4px 10px;border-radius:12px;
+  }
+  .phase-status.pending{background:rgba(255,255,255,0.06);color:var(--text-muted);}
+  .phase-status.active{background:rgba(251,191,36,0.15);color:var(--warning);}
+  .phase-status.complete{background:rgba(52,211,153,0.15);color:var(--success);}
+
+  /* Tasks */
+  .tasks{display:flex;flex-direction:column;gap:10px;}
+  .task{display:flex;align-items:flex-start;gap:10px;cursor:pointer;}
+  .task input[type="checkbox"]{
+    width:16px;height:16px;margin-top:2px;accent-color:var(--teal);cursor:pointer;
+  }
+  .task-text{font-size:13px;color:var(--text-muted);line-height:1.5;transition:all 0.2s;}
+  .task-text.done{color:rgba(100,140,160,0.5);text-decoration:line-through;}
+
+  /* Decision Gates */
+  .gate{
+    margin-top:14px;padding-top:14px;border-top:1px dashed rgba(255,255,255,0.08);
+    display:flex;align-items:center;gap:8px;
+  }
+  .gate-icon{font-size:14px;}
+  .gate-text{font-size:12px;font-family:var(--font-mono);color:var(--warning);letter-spacing:0.03em;}
+
+  /* Notes Section */
+  .notes-section{margin-top:20px;}
+  .notes-header{
+    font-size:12px;font-family:var(--font-mono);letter-spacing:0.06em;
+    color:var(--text-muted);margin-bottom:10px;
+  }
+  .notes-area{
+    width:100%;min-height:80px;padding:14px;font-size:13px;line-height:1.6;
+    background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;
+    color:var(--text-primary);font-family:var(--font-sans);resize:vertical;
+  }
+  .notes-area:focus{outline:none;border-color:rgba(100,180,220,0.3);}
+  .notes-area::placeholder{color:rgba(100,140,160,0.4);}
+
+  /* Footer */
+  footer{
+    border-top:1px solid var(--border);margin-top:60px;padding:24px 32px;
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;color:var(--text-muted);
+  }
+  .save-indicator{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:0.05em;
+    color:var(--success);opacity:0;transition:opacity 0.3s;
+  }
+  .save-indicator.show{opacity:1;}
+
+  @media(max-width:900px){
+    .overview{grid-template-columns:1fr;}
+    main{padding:20px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-pulse"></div>
+    <div>
+      <div class="logo-text">PrometheanLink</div>
+      <div class="logo-sub">TRANSFORMATION ROADMAP</div>
+    </div>
+  </div>
+  <div class="header-badge">3-PORTAL SYSTEM</div>
+</header>
+
+<main>
+  <!-- Progress Overview -->
+  <div class="overview">
+    <div class="overview-card teal">
+      <div class="overview-label">PORTAL 1</div>
+      <div class="overview-title">Internal Operations</div>
+      <div class="overview-subtitle">Team & Leadership</div>
+      <div class="progress-bar"><div class="progress-fill teal" id="progress-internal" style="width:0%"></div></div>
+      <div class="progress-text" id="progress-internal-text">0%</div>
+    </div>
+    <div class="overview-card indigo">
+      <div class="overview-label">PORTAL 2</div>
+      <div class="overview-title">Clients & Investors</div>
+      <div class="overview-subtitle">External Stakeholders</div>
+      <div class="progress-bar"><div class="progress-fill indigo" id="progress-external" style="width:0%"></div></div>
+      <div class="progress-text" id="progress-external-text">0%</div>
+    </div>
+    <div class="overview-card cyan">
+      <div class="overview-label">PORTAL 3</div>
+      <div class="overview-title">Vendors & Contractors</div>
+      <div class="overview-subtitle">ATM Pilot & Hardware</div>
+      <div class="progress-bar"><div class="progress-fill cyan" id="progress-vendors" style="width:0%"></div></div>
+      <div class="progress-text" id="progress-vendors-text">0%</div>
+    </div>
+  </div>
+
+  <!-- Portal 1: Internal Operations -->
+  <section class="portal" data-portal="internal">
+    <div class="portal-header">
+      <div class="portal-icon teal">⚙</div>
+      <div>
+        <div class="portal-title">Internal Operations</div>
+        <div class="portal-desc">Systems, processes, and team infrastructure</div>
+      </div>
+    </div>
+    <div class="phases">
+      <div class="phase" data-phase="infra">
+        <div class="phase-header">
+          <span class="phase-name">Infrastructure Foundation</span>
+          <span class="phase-status pending" id="status-infra">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="infra-1"><span class="task-text">Deploy SMARTiDATA core platform</span></label>
+          <label class="task"><input type="checkbox" data-task="infra-2"><span class="task-text">Configure Acacia knowledge system</span></label>
+          <label class="task"><input type="checkbox" data-task="infra-3"><span class="task-text">Enable Bloom's Engine metabolic cycles</span></label>
+          <label class="task"><input type="checkbox" data-task="infra-4"><span class="task-text">Establish Echo heartbeat monitoring</span></label>
+        </div>
+        <div class="gate"><span class="gate-icon">⚡</span><span class="gate-text">GATE: All systems operational before proceeding</span></div>
+      </div>
+      <div class="phase" data-phase="workflow">
+        <div class="phase-header">
+          <span class="phase-name">Workflow Automation</span>
+          <span class="phase-status pending" id="status-workflow">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="workflow-1"><span class="task-text">Email intelligence pipeline active</span></label>
+          <label class="task"><input type="checkbox" data-task="workflow-2"><span class="task-text">Task/project management integrated</span></label>
+          <label class="task"><input type="checkbox" data-task="workflow-3"><span class="task-text">Invoice/expense tracking automated</span></label>
+          <label class="task"><input type="checkbox" data-task="workflow-4"><span class="task-text">Document studio operational</span></label>
+        </div>
+      </div>
+      <div class="phase" data-phase="brain">
+        <div class="phase-header">
+          <span class="phase-name">Brain State Integration</span>
+          <span class="phase-status pending" id="status-brain">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="brain-1"><span class="task-text">Connectome routing active</span></label>
+          <label class="task"><input type="checkbox" data-task="brain-2"><span class="task-text">Endocrine system (cortisol/serotonin) calibrated</span></label>
+          <label class="task"><input type="checkbox" data-task="brain-3"><span class="task-text">Amygdala reflex thresholds tuned</span></label>
+          <label class="task"><input type="checkbox" data-task="brain-4"><span class="task-text">Daydream creative cross-referencing enabled</span></label>
+        </div>
+        <div class="gate"><span class="gate-icon">⚡</span><span class="gate-text">GATE: Brain achieving homeostasis</span></div>
+      </div>
+    </div>
+    <div class="notes-section">
+      <div class="notes-header">PORTAL NOTES</div>
+      <textarea class="notes-area" data-notes="internal" placeholder="Add notes about internal operations progress..."></textarea>
+    </div>
+  </section>
+
+  <!-- Portal 2: Clients & Investors -->
+  <section class="portal" data-portal="external">
+    <div class="portal-header">
+      <div class="portal-icon indigo">◈</div>
+      <div>
+        <div class="portal-title">Clients & Investors</div>
+        <div class="portal-desc">External stakeholder engagement and delivery</div>
+      </div>
+    </div>
+    <div class="phases">
+      <div class="phase" data-phase="delivery">
+        <div class="phase-header">
+          <span class="phase-name">Client Delivery Systems</span>
+          <span class="phase-status pending" id="status-delivery">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="delivery-1"><span class="task-text">Client portal deployed (Phoenix Edge)</span></label>
+          <label class="task"><input type="checkbox" data-task="delivery-2"><span class="task-text">Gallery/preview system operational</span></label>
+          <label class="task"><input type="checkbox" data-task="delivery-3"><span class="task-text">Scheduling/booking flow integrated</span></label>
+          <label class="task"><input type="checkbox" data-task="delivery-4"><span class="task-text">Payment processing connected</span></label>
+        </div>
+      </div>
+      <div class="phase" data-phase="marketing">
+        <div class="phase-header">
+          <span class="phase-name">Marketing & Outreach</span>
+          <span class="phase-status pending" id="status-marketing">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="marketing-1"><span class="task-text">DUO landing page live</span></label>
+          <label class="task"><input type="checkbox" data-task="marketing-2"><span class="task-text">Emergence demo deployed (GitHub Pages)</span></label>
+          <label class="task"><input type="checkbox" data-task="marketing-3"><span class="task-text">Email campaign system active</span></label>
+          <label class="task"><input type="checkbox" data-task="marketing-4"><span class="task-text">Founding partner program launched</span></label>
+        </div>
+        <div class="gate"><span class="gate-icon">⚡</span><span class="gate-text">GATE: First 3 paying clients acquired</span></div>
+      </div>
+      <div class="phase" data-phase="investor">
+        <div class="phase-header">
+          <span class="phase-name">Investor Readiness</span>
+          <span class="phase-status pending" id="status-investor">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="investor-1"><span class="task-text">Pitch deck finalized</span></label>
+          <label class="task"><input type="checkbox" data-task="investor-2"><span class="task-text">Financial projections documented</span></label>
+          <label class="task"><input type="checkbox" data-task="investor-3"><span class="task-text">Organism page (technical deep-dive) polished</span></label>
+          <label class="task"><input type="checkbox" data-task="investor-4"><span class="task-text">Demo environment stable for walkthroughs</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="notes-section">
+      <div class="notes-header">PORTAL NOTES</div>
+      <textarea class="notes-area" data-notes="external" placeholder="Add notes about client/investor progress..."></textarea>
+    </div>
+  </section>
+
+  <!-- Portal 3: Vendors & Contractors -->
+  <section class="portal" data-portal="vendors">
+    <div class="portal-header">
+      <div class="portal-icon cyan">◇</div>
+      <div>
+        <div class="portal-title">Vendors & Contractors</div>
+        <div class="portal-desc">ATM pilot, hardware partnerships, supply chain</div>
+      </div>
+    </div>
+    <div class="phases">
+      <div class="phase" data-phase="pilot">
+        <div class="phase-header">
+          <span class="phase-name">ATM Pilot Program</span>
+          <span class="phase-status pending" id="status-pilot">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="pilot-1"><span class="task-text">Hardware vendor selected</span></label>
+          <label class="task"><input type="checkbox" data-task="pilot-2"><span class="task-text">Pilot location secured</span></label>
+          <label class="task"><input type="checkbox" data-task="pilot-3"><span class="task-text">Integration specs documented</span></label>
+          <label class="task"><input type="checkbox" data-task="pilot-4"><span class="task-text">Compliance requirements mapped</span></label>
+        </div>
+        <div class="gate"><span class="gate-icon">⚡</span><span class="gate-text">GATE: Pilot contract signed</span></div>
+      </div>
+      <div class="phase" data-phase="supply">
+        <div class="phase-header">
+          <span class="phase-name">Supply Chain Setup</span>
+          <span class="phase-status pending" id="status-supply">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="supply-1"><span class="task-text">Contractor agreements templated</span></label>
+          <label class="task"><input type="checkbox" data-task="supply-2"><span class="task-text">Vendor onboarding flow defined</span></label>
+          <label class="task"><input type="checkbox" data-task="supply-3"><span class="task-text">Payment terms standardized</span></label>
+          <label class="task"><input type="checkbox" data-task="supply-4"><span class="task-text">Quality assurance checkpoints established</span></label>
+        </div>
+      </div>
+      <div class="phase" data-phase="scale">
+        <div class="phase-header">
+          <span class="phase-name">Scale Preparation</span>
+          <span class="phase-status pending" id="status-scale">PENDING</span>
+        </div>
+        <div class="tasks">
+          <label class="task"><input type="checkbox" data-task="scale-1"><span class="task-text">Multi-location deployment playbook</span></label>
+          <label class="task"><input type="checkbox" data-task="scale-2"><span class="task-text">Remote monitoring infrastructure</span></label>
+          <label class="task"><input type="checkbox" data-task="scale-3"><span class="task-text">Maintenance scheduling system</span></label>
+          <label class="task"><input type="checkbox" data-task="scale-4"><span class="task-text">Inventory tracking integrated</span></label>
+        </div>
+        <div class="gate"><span class="gate-icon">⚡</span><span class="gate-text">GATE: Ready for 10+ location rollout</span></div>
+      </div>
+    </div>
+    <div class="notes-section">
+      <div class="notes-header">PORTAL NOTES</div>
+      <textarea class="notes-area" data-notes="vendors" placeholder="Add notes about vendor/contractor progress..."></textarea>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div><span style="color:var(--teal);">●</span> PrometheanLink LLC — Transformation Roadmap</div>
+  <div class="save-indicator" id="saveIndicator">✓ SAVED</div>
+</footer>
+
+<script>
+const STORAGE_KEY = 'prometheanlink-roadmap-state';
+
+// Load state from localStorage
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : { tasks: {}, notes: {} };
+  } catch (e) {
+    return { tasks: {}, notes: {} };
+  }
+}
+
+// Save state to localStorage
+function saveState(state) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    showSaveIndicator();
+  } catch (e) {
+    console.error('Failed to save state:', e);
+  }
+}
+
+function showSaveIndicator() {
+  const indicator = document.getElementById('saveIndicator');
+  indicator.classList.add('show');
+  setTimeout(() => indicator.classList.remove('show'), 1500);
+}
+
+// Calculate progress for a portal
+function calculateProgress(portal) {
+  const tasks = document.querySelectorAll(`[data-portal="${portal}"] input[type="checkbox"]`);
+  const checked = Array.from(tasks).filter(t => t.checked).length;
+  return tasks.length > 0 ? Math.round((checked / tasks.length) * 100) : 0;
+}
+
+// Update progress bars
+function updateProgress() {
+  const portals = ['internal', 'external', 'vendors'];
+  portals.forEach(portal => {
+    const pct = calculateProgress(portal);
+    const fillId = portal === 'internal' ? 'progress-internal' :
+                   portal === 'external' ? 'progress-external' : 'progress-vendors';
+    const textId = fillId + '-text';
+    document.getElementById(fillId).style.width = pct + '%';
+    document.getElementById(textId).textContent = pct + '%';
+  });
+}
+
+// Update phase statuses
+function updatePhaseStatuses() {
+  document.querySelectorAll('.phase').forEach(phase => {
+    const tasks = phase.querySelectorAll('input[type="checkbox"]');
+    const checked = Array.from(tasks).filter(t => t.checked).length;
+    const statusEl = phase.querySelector('.phase-status');
+
+    if (checked === 0) {
+      statusEl.textContent = 'PENDING';
+      statusEl.className = 'phase-status pending';
+    } else if (checked === tasks.length) {
+      statusEl.textContent = 'COMPLETE';
+      statusEl.className = 'phase-status complete';
+    } else {
+      statusEl.textContent = 'ACTIVE';
+      statusEl.className = 'phase-status active';
+    }
+  });
+}
+
+// Initialize
+function init() {
+  const state = loadState();
+
+  // Restore checkbox states
+  document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    const taskId = cb.dataset.task;
+    if (state.tasks[taskId]) {
+      cb.checked = true;
+      cb.closest('.task').querySelector('.task-text').classList.add('done');
+    }
+
+    cb.addEventListener('change', () => {
+      const text = cb.closest('.task').querySelector('.task-text');
+      text.classList.toggle('done', cb.checked);
+
+      const newState = loadState();
+      newState.tasks[taskId] = cb.checked;
+      saveState(newState);
+
+      updateProgress();
+      updatePhaseStatuses();
+    });
+  });
+
+  // Restore notes
+  document.querySelectorAll('.notes-area').forEach(textarea => {
+    const notesId = textarea.dataset.notes;
+    if (state.notes[notesId]) {
+      textarea.value = state.notes[notesId];
+    }
+
+    textarea.addEventListener('input', () => {
+      const newState = loadState();
+      newState.notes[notesId] = textarea.value;
+      saveState(newState);
+    });
+  });
+
+  updateProgress();
+  updatePhaseStatuses();
+}
+
+init();
+</script>
+</body>
+</html>
