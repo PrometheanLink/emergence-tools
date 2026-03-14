@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Emergence Engine — PrometheanLink</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#040616;
+    --surface:rgba(255,255,255,0.04);
+    --border:rgba(100,200,255,0.12);
+    --text-primary:#e8f4ff;
+    --text-muted:rgba(140,195,230,0.65);
+    --accent-cyan:#4dc8f5;
+    --accent-amber:#f5a623;
+    --accent-teal:#2dd4bf;
+    --font-mono:'Courier New',Courier,monospace;
+    --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --radius:10px;
+  }
+
+  html,body{width:100%;min-height:100vh;background:var(--bg);color:var(--text-primary);font-family:var(--font-sans);overflow-x:hidden;}
+
+  /* ─── Header ─── */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 32px;
+    border-bottom:1px solid var(--border);
+    background:rgba(4,6,22,0.92);
+    backdrop-filter:blur(12px);
+    position:sticky;top:0;z-index:10;
+  }
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-dot{width:10px;height:10px;border-radius:50%;background:var(--accent-cyan);box-shadow:0 0 8px var(--accent-cyan);}
+  .logo-name{font-size:15px;font-weight:600;letter-spacing:0.04em;color:var(--text-primary);}
+  .logo-sub{font-size:11px;color:var(--text-muted);letter-spacing:0.06em;margin-top:1px;}
+  .header-tag{
+    font-size:11px;font-family:var(--font-mono);
+    color:var(--accent-cyan);letter-spacing:0.08em;
+    border:1px solid rgba(77,200,245,0.25);
+    padding:4px 12px;border-radius:20px;
+    background:rgba(77,200,245,0.06);
+  }
+
+  /* ─── Canvas Section ─── */
+  .sim-wrap{
+    position:relative;margin:32px auto;max-width:1100px;
+    border:1px solid var(--border);border-radius:var(--radius);
+    overflow:hidden;background:#040616;
+  }
+  canvas{display:block;width:100%;height:520px;}
+  .sim-hud{
+    position:absolute;top:0;left:0;right:0;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:14px 20px;pointer-events:none;
+  }
+  .hud-label{font-size:11px;font-family:var(--font-mono);color:rgba(77,200,245,0.65);letter-spacing:0.08em;}
+  .hud-stats{text-align:right;font-size:11px;font-family:var(--font-mono);line-height:1.7;}
+  .hud-stats span{color:rgba(100,220,255,0.85);}
+  .sim-hint{
+    position:absolute;bottom:14px;left:0;right:0;text-align:center;
+    font-size:11px;color:rgba(120,180,220,0.4);letter-spacing:0.05em;pointer-events:none;
+  }
+
+  /* ─── Controls ─── */
+  .controls{
+    display:flex;gap:12px;flex-wrap:wrap;
+    margin:0 auto 24px;max-width:1100px;padding:0 0;
+  }
+  .ctrl-btn{
+    font-family:var(--font-mono);font-size:12px;letter-spacing:0.05em;
+    color:var(--accent-cyan);background:rgba(77,200,245,0.06);
+    border:1px solid rgba(77,200,245,0.22);border-radius:6px;
+    padding:8px 18px;cursor:pointer;transition:all .18s;
+  }
+  .ctrl-btn:hover{background:rgba(77,200,245,0.14);border-color:rgba(77,200,245,0.5);}
+  .ctrl-btn.amber{color:var(--accent-amber);background:rgba(245,166,35,0.06);border-color:rgba(245,166,35,0.22);}
+  .ctrl-btn.amber:hover{background:rgba(245,166,35,0.14);border-color:rgba(245,166,35,0.5);}
+  .ctrl-btn.teal{color:var(--accent-teal);background:rgba(45,212,191,0.06);border-color:rgba(45,212,191,0.22);}
+  .ctrl-btn.teal:hover{background:rgba(45,212,191,0.14);border-color:rgba(45,212,191,0.5);}
+
+  /* ─── Info Cards ─── */
+  .cards{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:16px;max-width:1100px;margin:0 auto 40px;
+  }
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:20px 22px;
+  }
+  .card-icon{font-size:22px;margin-bottom:10px;}
+  .card-title{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;letter-spacing:0.02em;}
+  .card-body{font-size:13px;color:var(--text-muted);line-height:1.65;}
+  .card-metric{
+    margin-top:14px;padding-top:12px;border-top:1px solid var(--border);
+    font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan);letter-spacing:0.04em;
+  }
+
+  /* ─── Section Title ─── */
+  .section-header{
+    max-width:1100px;margin:0 auto 18px;
+    display:flex;align-items:center;gap:14px;
+  }
+  .section-line{flex:1;height:1px;background:var(--border);}
+  .section-label{
+    font-size:11px;font-family:var(--font-mono);letter-spacing:0.1em;
+    color:var(--text-muted);white-space:nowrap;
+  }
+
+  /* ─── Footer ─── */
+  footer{
+    border-top:1px solid var(--border);margin-top:40px;
+    padding:20px 32px;display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;color:var(--text-muted);letter-spacing:0.03em;
+  }
+  .footer-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent-cyan);margin-right:8px;vertical-align:middle;}
+
+  /* ─── Outer padding ─── */
+  main{padding:0 32px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <div>
+      <div class="logo-name">PrometheanLink</div>
+      <div class="logo-sub">AI CONSULTING SYSTEMS</div>
+    </div>
+  </div>
+  <div class="header-tag">EMERGENCE ENGINE v1.0</div>
+</header>
+
+<main>
+
+  <div class="sim-wrap" id="simWrap">
+    <canvas id="cv"></canvas>
+    <div class="sim-hud">
+      <div class="hud-label">NEURAL PARTICLE NETWORK<br><span style="color:rgba(77,200,245,0.35);font-size:10px;">real-time emergence simulation</span></div>
+      <div class="hud-stats" id="hudStats"></div>
+    </div>
+    <div class="sim-hint">click to inject energy &nbsp;·&nbsp; move cursor to steer nodes</div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn" onclick="triggerSpark('cyan')">[ inject signal ]</button>
+    <button class="ctrl-btn amber" onclick="triggerSpark('amber')">[ energy burst ]</button>
+    <button class="ctrl-btn teal" onclick="triggerSpark('teal')">[ cascade wave ]</button>
+    <button class="ctrl-btn" onclick="resetSim()" style="margin-left:auto;">[ reset ]</button>
+  </div>
+
+  <div class="section-header">
+    <div class="section-line"></div>
+    <div class="section-label">WHAT YOU'RE SEEING</div>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">◎</div>
+      <div class="card-title">Emergence</div>
+      <div class="card-body">150 mindless particles, each knowing only its position and energy level. No particle has any awareness of the whole — yet global patterns arise from purely local rules. Order from chaos, without a central coordinator.</div>
+      <div class="card-metric">nodes: 150 &nbsp;·&nbsp; rules per node: 2</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">◈</div>
+      <div class="card-title">Energy per Useful Outcome</div>
+      <div class="card-body">Each signal cascade is a measurable unit of work. The system self-organizes to minimize energy waste while maximizing signal propagation — the same physics-inspired metric PrometheanLink uses to benchmark business process efficiency.</div>
+      <div class="card-metric">efficiency = signal reach / energy spent</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">◇</div>
+      <div class="card-title">Relevance to AI Systems</div>
+      <div class="card-body">LLMs, neural networks, and well-designed AI business systems all operate on this principle. Understanding emergence helps you architect systems that do more with less — the core promise of PrometheanLink's consulting model.</div>
+      <div class="card-metric">intelligence = structured emergence</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div><span class="footer-dot"></span>PrometheanLink LLC &nbsp;·&nbsp; AI Consulting Systems</div>
+  <div style="font-family:var(--font-mono);font-size:11px;">emergence-simulation.html</div>
+</footer>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const hudStats = document.getElementById('hudStats');
+
+function resize(){cv.width=cv.offsetWidth;cv.height=cv.offsetHeight;}
+resize();
+window.addEventListener('resize',resize);
+
+const N=150,CDIST=110;
+let mouse={x:-999,y:-999},frame=0,totalSignals=0,peakConnections=0;
+
+class P{
+  constructor(w,h){
+    this.x=Math.random()*(w||cv.width);
+    this.y=Math.random()*(h||cv.height);
+    this.vx=(Math.random()-.5)*.6;
+    this.vy=(Math.random()-.5)*.6;
+    this.r=1.5+Math.random()*1.5;
+    this.hue=190+Math.random()*50;
+    this.energy=0;
+    this.fired=false;
+  }
+  update(){
+    const cx=cv.width/2,cy=cv.height/2;
+    const dx=cx-this.x,dy=cy-this.y;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    if(d>cv.width*.38){this.vx+=dx*.00008;this.vy+=dy*.00008;}
+    const spd=Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+    if(spd>1.8){this.vx=this.vx/spd*1.8;this.vy=this.vy/spd*1.8;}
+    this.x+=this.vx;this.y+=this.vy;
+    if(this.x<-60)this.x=cv.width+60;if(this.x>cv.width+60)this.x=-60;
+    if(this.y<-60)this.y=cv.height+60;if(this.y>cv.height+60)this.y=-60;
+    if(this.energy>0){this.energy*=0.965;if(this.energy<.015)this.energy=0;}
+  }
+  draw(){
+    const e=this.energy,r=this.r+e*5,h=this.hue+e*60;
+    if(e>.05){
+      ctx.beginPath();ctx.arc(this.x,this.y,r*4,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${h},85%,60%,${e*.08})`;ctx.fill();
+      ctx.beginPath();ctx.arc(this.x,this.y,r*2,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${h},85%,70%,${e*.18})`;ctx.fill();
+    }
+    ctx.beginPath();ctx.arc(this.x,this.y,r,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${h},80%,${55+e*35}%,${.6+e*.4})`;ctx.fill();
+  }
+}
+
+let ps=[];
+function initParticles(){ps=[];for(let i=0;i<N;i++)ps.push(new P());}
+initParticles();
+
+function drawEdges(){
+  let conns=0;
+  for(let i=0;i<ps.length;i++){
+    for(let j=i+1;j<ps.length;j++){
+      const a=ps[i],b=ps[j];
+      const dx=a.x-b.x,dy=a.y-b.y;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<CDIST){
+        conns++;
+        const t=1-d/CDIST;
+        const eAvg=(a.energy+b.energy)*.5;
+        const h=200+eAvg*70;
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle=`hsla(${h},65%,${55+eAvg*25}%,${t*.28+eAvg*.55})`;
+        ctx.lineWidth=t*.8+eAvg*2;ctx.stroke();
+        if(a.energy>.35&&b.energy<.08&&!b.fired){b.energy=a.energy*.72;b.fired=true;totalSignals++;}
+        if(b.energy>.35&&a.energy<.08&&!a.fired){a.energy=b.energy*.72;a.fired=true;totalSignals++;}
+      }
+    }
+  }
+  if(conns>peakConnections)peakConnections=conns;
+  return conns;
+}
+
+function drawMouse(){
+  if(mouse.x===-999)return;
+  ctx.beginPath();ctx.arc(mouse.x,mouse.y,60,0,Math.PI*2);
+  ctx.strokeStyle='rgba(80,180,255,0.08)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.arc(mouse.x,mouse.y,4,0,Math.PI*2);
+  ctx.fillStyle='rgba(100,200,255,0.5)';ctx.fill();
+  ps.forEach(p=>{
+    const dx=p.x-mouse.x,dy=p.y-mouse.y;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    if(d<120){
+      const f=(1-d/120)*.06;
+      p.vx+=dx/d*f;p.vy+=dy/d*f;
+      if(d<55){
+        ctx.beginPath();ctx.moveTo(mouse.x,mouse.y);ctx.lineTo(p.x,p.y);
+        ctx.strokeStyle=`rgba(80,180,255,${(1-d/55)*.15})`;ctx.lineWidth=.5;ctx.stroke();
+      }
+    }
+  });
+}
+
+const hueMap={cyan:200,amber:35,teal:175};
+function triggerSpark(type){
+  const h=hueMap[type]||200;
+  const count=type==='teal'?8:type==='amber'?5:3;
+  const chosen=[];
+  while(chosen.length<count){
+    const idx=Math.floor(Math.random()*ps.length);
+    if(!chosen.includes(idx))chosen.push(idx);
+  }
+  chosen.forEach((idx,i)=>{
+    setTimeout(()=>{
+      const p=ps[idx];
+      p.energy=1;p.hue=h+Math.random()*20;
+      totalSignals++;
+    },i*80);
+  });
+}
+
+let lastAutoSpark=0;
+function autoSpark(t){
+  if(t-lastAutoSpark>2800){
+    const p=ps[Math.floor(Math.random()*ps.length)];
+    p.energy=1;p.hue=200+Math.random()*50;lastAutoSpark=t;totalSignals++;
+  }
+}
+
+cv.addEventListener('click',e=>{
+  const rc=cv.getBoundingClientRect();
+  const mx=(e.clientX-rc.left)*(cv.width/rc.width);
+  const my=(e.clientY-rc.top)*(cv.height/rc.height);
+  ps.forEach(p=>{
+    const dx=p.x-mx,dy=p.y-my,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<90){p.energy=1-(d/90)*.3;p.vx+=(dx/d)*1.5;p.vy+=(dy/d)*1.5;p.hue=30+Math.random()*40;totalSignals++;}
+  });
+});
+
+cv.addEventListener('mousemove',e=>{
+  const rc=cv.getBoundingClientRect();
+  mouse.x=(e.clientX-rc.left)*(cv.width/rc.width);
+  mouse.y=(e.clientY-rc.top)*(cv.height/rc.height);
+});
+cv.addEventListener('mouseleave',()=>{mouse.x=-999;mouse.y=-999;});
+
+function resetSim(){
+  totalSignals=0;peakConnections=0;frame=0;
+  initParticles();
+}
+
+function animate(t){
+  requestAnimationFrame(animate);
+  frame++;
+  ctx.fillStyle='rgba(4,6,22,0.18)';
+  ctx.fillRect(0,0,cv.width,cv.height);
+  autoSpark(t);
+  ps.forEach(p=>{p.fired=false;});
+  drawMouse();
+  const conns=drawEdges();
+  const active=ps.filter(p=>p.energy>.05).length;
+  ps.forEach(p=>{p.update();p.draw();});
+  if(frame%4===0){
+    hudStats.innerHTML=
+      `nodes &nbsp;<span>${N}</span><br>`+
+      `active &nbsp;<span style="color:rgba(100,255,180,.85)">${active}</span><br>`+
+      `signals &nbsp;<span style="color:rgba(255,200,80,.85)">${totalSignals}</span><br>`+
+      `conns &nbsp;<span style="color:rgba(140,180,255,.85)">${conns}</span>`;
+  }
+}
+
+ctx.fillStyle='#040616';
+ctx.fillRect(0,0,cv.width,cv.height);
+animate(0);
+</script>
+</body>
+</html>
